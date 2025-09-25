@@ -19,4 +19,4 @@ $pip install -r requirements.txt
 ```bash
 $ cp .env.example .env
 ```
-set your environment secret keys in `.env` such as `OPENAI_API_KEY`
+set your environment secret keys in `.env` such as `OPENAI_API_KEY` and others

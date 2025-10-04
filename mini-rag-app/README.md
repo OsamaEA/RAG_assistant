@@ -20,3 +20,9 @@ $pip install -r requirements.txt
 $ cp .env.example .env
 ```
 set your environment secret keys in `.env` such as `OPENAI_API_KEY` and others
+
+## Run FastAPI Server
+```bash
+$ uvicorn main:app --reload --host 0.0.0.0 --port 5000
+```
+## Postman collection might be needed

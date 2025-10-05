@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     FILE_ALLOWED_EXTENSIONS: list
     MAX_FILE_SIZE: int
+    FILE_DEFAULT_CHUNK_SIZE: int
 
     class config:
         env_file = load_dotenv(find_dotenv())

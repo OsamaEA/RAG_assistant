@@ -22,14 +22,14 @@ class DataController(BaseController):
     def generate_unique_filename(self, original_filename: str, project_id: str):
         project_path = ProjectController().get_project_path(project_id=project_id)
         clean_filename = self.clean_filename(original_filename)
-        random_filename = self.generate_random_id()
-        file_path = os.path.join(project_path, clean_filename+"_"+random_filename)
+        random_filename = self.generate_random_id()+"_"+clean_filename
+        file_path = os.path.join(project_path, random_filename)
         
         while os.path.exists(file_path):
-            random_filename = self.generate_random_id()
-            file_path = os.path.join(project_path, clean_filename+"_"+random_filename)
+            random_filename = self.generate_random_id()+"_"+clean_filename
+            file_path = os.path.join(project_path, random_filename)
 
-        return(file_path)
+        return(file_path, random_filename)
 
 
     def clean_filename(self, original_filename: str):

@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     FILE_ALLOWED_EXTENSIONS: list
     MAX_FILE_SIZE: int
     FILE_DEFAULT_CHUNK_SIZE: int
+    MONGODB_URI: str
+    MONGODB_DATABASE: str
 
     class config:
         env_file = load_dotenv(find_dotenv())

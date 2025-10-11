@@ -1,5 +1,5 @@
 from .enums.ResponseEnums import ResponseSignal
 from .enums.ProcessingEnums import ProcessingEnum
-from .data_chunk import DataChunk
-from .project import Project
+from .db_scehmes.data_chunk import DataChunk
+from .db_scehmes.project import Project
 

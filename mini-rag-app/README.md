@@ -26,3 +26,11 @@ set your environment secret keys in `.env` such as `OPENAI_API_KEY` and others
 $ uvicorn main:app --reload --host 0.0.0.0 --port 5000
 ```
 ## Postman collection might be needed
+
+
+## Run Docker
+```bash
+$ cd docker
+$ cp .env
+```
+- update `.env` with your credenitals

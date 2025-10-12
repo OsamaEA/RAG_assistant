@@ -40,3 +40,7 @@ $ cp .env
 2) Data Chunking
 3) Indexing
 4) LLM Factory
+
+
+## Tip:
+* Use Pylance if you were to add more LLM Providers in the LLM Factory Design

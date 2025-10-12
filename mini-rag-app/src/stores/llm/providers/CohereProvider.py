@@ -1,16 +1,15 @@
 from LLMInterface import LLMInterface
-from LLMEnums import OpenAIEnum
-from openai import OpenAI
+from LLMEnums import CohereEnums, DocumentTypeEnum
+import cohere
 import logging
 
-class OpenAIProvider(LLMInterface):
-    def __init__(self, api_key: str, api_url: str = None,
+class CohereProvider(LLMInterface):
+    def __init__(self, api_key: str,
                 default_input_max_characters: int = 1000,
                 default_generation_max_output_token: int = 1000,
                 default_generation_temperature: float = 0.1):
 
         self.api_key = api_key
-        self.api_url = api_url
         self.default_input_max_characters = default_input_max_characters
         self.default_generation_max_output_token = default_generation_max_output_token
         self.default_generation_temperature = default_generation_temperature
@@ -18,73 +17,80 @@ class OpenAIProvider(LLMInterface):
         self.generation_model_id = None
         self.embedding_model_id = None
 
-        
-        self.client = OpenAI(api_key=self.api_key,
-                            api_url=self.api_url)
+
+        self.client = cohere.Client(api_key = self.api_key)
+
 
         self.logger = logging.getLogger(__name__)
 
 
     def set_generation_model(self, model_id:str):
         self.generation_model_id = model_id
-        self.logger.info(f"Set OpenAI generation model to: {model_id}")
+        self.logger.info(f"Set Cohere generation model to: {model_id}")
 
     def set_embedding_model(self, model_id:str, embedding_size: int):
         self.embedding_model_id = model_id
         self.embedding_size = embedding_size
-        self.logger.info(f"Set OpenAI embedding model to: {model_id} with embedding size: {embedding_size}")
+        self.logger.info(f"Set Cohere embedding model to: {model_id} with embedding size: {embedding_size}")
 
 
     def generate_text(self, prompt: str, chat_history: list = [], max_output_token: int = None, temperature: float = None) -> str:
         if not self.client:
-            self.logger.error("OpenAI client is not initialized.")
+            self.logger.error("Cohere client is not initialized.")
             return None
         if not self.generation_model_id:
-            self.logger.error("OpenAI generation model is not set.")
+            self.logger.error("Cohere generation model is not set.")
             return None
 
         max_output_token = max_output_token if max_output_token else self.default_generation_max_output_token
         temperature = temperature if temperature else self.default_generation_temperature
 
-        chat_history.append({"role": OpenAIEnum.USER.value, "content": prompt})
-        response = self.client.chat.completions.create(
+        response = self.client.chat(
             model = self.generation_model_id,
-            messages = chat_history,
+            chat_history = chat_history,
+            message = self.process_text(prompt),
             max_tokens = max_output_token,
             temperature = temperature
         )
 
-        if not response or not response.choices or len(response.choices) == 0 or not response.choices[0].message:
-                self.logger.error("No response received from OpenAI.")
-                return None
 
-        result = response.choices[0].message.content
+        if not response or not response.text:
+            self.logger.error("No response received from Cohere.")
+            return None
+
+        result = response.text
         return result
 
 
 
     def embed_text(self, text: str, document_type: str = None):
         if not self.client:
-            self.logger.error("OpenAI client is not initialized.")
+            self.logger.error("Cohere client is not initialized.")
             return None
         if not self.embedding_model_id:
-            self.logger.error("OpenAI embedding model is not set.")
+            self.logger.error("Cohere embedding model is not set.")
             return None
 
-        response = self.client.embeddings.create(
+
+        input_type = CohereEnums.DOCUMENT
+        if document_type == DocumentTypeEnum.QUERY:
+            input_type = CohereEnums.QUERY
+
+        response = self.client.embed(
             model = self.embedding_model_id,
-            input = text
+            texts = [self.process_text(text)],
+            input_type = input_type
         )
 
-        if not response or not response.data or len(response.data) == 0:
-            self.logger.error("No embedding data received from OpenAI.")
+        if not response or not response.embeddings or not response.embeddings.float_:
+            self.logger.error("No embedding data received from Cohere.")
             return None
 
-        return response.data[0].embedding
+        return response.embeddings.float_[0]
 
 
     def construct_prompt(self, prompt: str, role: str):
-        return {"role": role, "content": self.process_text(prompt)}
+        return {"role": role, "text": self.process_text(prompt)}
 
 
 

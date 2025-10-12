@@ -34,3 +34,9 @@ $ cd docker
 $ cp .env
 ```
 - update `.env` with your credenitals
+
+## Workflow
+1) Data Parsing
+2) Data Chunking
+3) Indexing
+4) LLM Factory

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from .llm.LLMEnums import OpenAIModelEnum
+from LLMEnums import OpenAIModelEnum
 class LLMInterface(ABC):
 
     @abstractmethod

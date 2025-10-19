@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from LLMEnums import OpenAIModelEnum
-class LLMInterface(ABC):
+from .LLMEnums import OpenAIEnums, CohereEnums
 
+class LLMInterface(ABC):
     @abstractmethod
     def set_generation_model(self, model_id:str):
         pass

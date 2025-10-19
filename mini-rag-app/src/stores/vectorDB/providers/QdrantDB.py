@@ -1,7 +1,7 @@
 from ..VectorDBInterface import VectorDBInterface
 from ..VectorDBEnums import VectorDBEnums, DistanceMethodEnums
 import logging
-from qdrant_client import models, QdrantCleint
+from qdrant_client import models, QdrantClient
 
 
 class QdrantDBProvider(VectorDBInterface):
@@ -20,7 +20,7 @@ class QdrantDBProvider(VectorDBInterface):
         self.logger = logging.getLogger(__name__)
      
     def connect(self):
-        self.client = QdrantCleint(path = self.db_path)
+        self.client = QdrantClient(path = self.db_path)
 
     def disconnect(self):
         self.client = None
@@ -46,7 +46,7 @@ class QdrantDBProvider(VectorDBInterface):
             self.delete_collection(collection_name=collection_name)
         
         if not self.is_collection_existed(collection_name=collection_name):
-            _ = self.create_collection(collection_name=collection_name,
+            _ = self.client.create_collection(collection_name=collection_name,
                                        vectors_config = models.VectorParams(
                                            size = embedding_size,
                                            distance = self.distance_method
@@ -61,7 +61,8 @@ class QdrantDBProvider(VectorDBInterface):
             return False
         
         self.client.upload_records(collection_name=collection_name,
-                                   records = [models.Record(vector = vector,
+                                   records = [models.Record(id = [record_id],
+                                                            vector = vector,
                                                             payload = {"text": text,
                                                                        "metadata": metadata})])
         return True
@@ -75,16 +76,18 @@ class QdrantDBProvider(VectorDBInterface):
             metadata = [None] * len(texts)
 
         if record_ids is None:
-            record_ids = [None] * len(texts)
+            record_ids = list(range(0, len(texts)))
 
         for i in range(0, len(texts), batch_size):
             batch_end = i + batch_size
             batch_texts = texts[i: batch_end]
             batch_vectors = vectors[i: batch_end]
             batch_metadata = metadata[i: batch_end]
+            batch_ids = record_ids[i: batch_end]
 
             batch_records = [
                             models.Record(
+                                id = batch_ids[_],
                                 vector = batch_vectors[_],
                                 payload = {"text": batch_texts[_],
                                 "metadata": batch_metadata[_]}

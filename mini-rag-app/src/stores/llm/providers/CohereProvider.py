@@ -1,6 +1,6 @@
-from LLMInterface import LLMInterface
-from LLMEnums import CohereEnums, DocumentTypeEnum
-import cohere
+from stores.llm.LLMInterface import LLMInterface
+from stores.llm.LLMEnums import CohereEnums, DocumentTypeEnum
+#import cohere
 import logging
 
 class CohereProvider(LLMInterface):
@@ -18,7 +18,7 @@ class CohereProvider(LLMInterface):
         self.embedding_model_id = None
 
 
-        self.client = cohere.Client(api_key = self.api_key)
+        self.client = None#cohere.Client(api_key = self.api_key) #Because Cohere package has issues installing on some systems
 
 
         self.logger = logging.getLogger(__name__)

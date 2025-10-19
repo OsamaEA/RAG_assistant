@@ -1,5 +1,5 @@
-from LLMInterface import LLMInterface
-from LLMEnums import OpenAIEnum
+from stores.llm.LLMInterface import LLMInterface
+from stores.llm.LLMEnums import OpenAIEnums
 from openai import OpenAI
 import logging
 
@@ -19,8 +19,7 @@ class OpenAIProvider(LLMInterface):
         self.embedding_model_id = None
 
         
-        self.client = OpenAI(api_key=self.api_key,
-                            api_url=self.api_url)
+        self.client = OpenAI(api_key=self.api_key)#,base_url=self.api_url)
 
         self.logger = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ class OpenAIProvider(LLMInterface):
         max_output_token = max_output_token if max_output_token else self.default_generation_max_output_token
         temperature = temperature if temperature else self.default_generation_temperature
 
-        chat_history.append({"role": OpenAIEnum.USER.value, "content": prompt})
+        chat_history.append({"role": OpenAIEnums.USER.value, "content": prompt})
         response = self.client.chat.completions.create(
             model = self.generation_model_id,
             messages = chat_history,

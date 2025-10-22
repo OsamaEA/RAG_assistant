@@ -17,17 +17,23 @@ class Settings(BaseSettings):
     OPENAI_API_URL:str
     COHERE_API_KEY:str
 
-    GENERATION_MODEL_ID:str
-    EMBEDDING_MODEL_ID :str
-    EMBEDDING_MODEL_SIZE:int
+    GENERATION_MODEL_ID:str = None
+    EMBEDDING_MODEL_ID :str =None
+    EMBEDDING_MODEL_SIZE:int = None
 
-    INPUT_DEFAULT_MAX_CHARACTERS:int
-    GENERATION_DEFAULT_MAX_TOKENS:int
-    GENERATION_DEFAULT_TEMPERATURE:float
+    INPUT_DEFAULT_MAX_CHARACTERS:int = None
+    GENERATION_DEFAULT_MAX_TOKENS:int = None
+    GENERATION_DEFAULT_TEMPERATURE:float = None
 
     VECTOR_DB_BACKEND:str
     VECTOR_DB_PATH:str
-    VECTOR_DB_DISTANCE_METHOD:str
+    VECTOR_DB_DISTANCE_METHOD:str = None
+
+
+    DEFAULT_LANG:str = "en"
+    PRIMARY_LANG:str = "en"
+
+
     class config:
         env_file = load_dotenv(find_dotenv())
 

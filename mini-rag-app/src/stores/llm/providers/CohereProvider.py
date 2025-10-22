@@ -19,7 +19,7 @@ class CohereProvider(LLMInterface):
 
 
         self.client = None#cohere.Client(api_key = self.api_key) #Because Cohere package has issues installing on some systems
-
+        self.enums = CohereEnums
 
         self.logger = logging.getLogger(__name__)
 

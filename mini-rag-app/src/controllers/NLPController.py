@@ -6,12 +6,13 @@ from typing import List
 from stores.llm.LLMEnums import DocumentTypeEnum
 
 class NLPController(BaseController):
-    def __init__(self, vectordb_client, generation_client, embedding_client):
+    def __init__(self, vectordb_client, generation_client, embedding_client, template_parser):
         super().__init__()
 
         self.vectordb_client = vectordb_client
         self.generation_client = generation_client
         self.embedding_client = embedding_client
+        self.template_parser = template_parser
 
     def create_collection_name(self, project_id: str) -> str:
         return f"collection_{project_id}".strip()
@@ -63,4 +64,45 @@ class NLPController(BaseController):
                                                         limit=limit)
         if not results:
             return False
-        return json.loads(json.dumps(results, default = lambda x: x.__dict__))
+        return [result.dict() for result in results]
+
+
+
+    def answer_rag_question(self, project: Project, query: str,
+                            limit: int = 10,
+                            chat_history: list = [],
+                            max_output_token: int = None,
+                            temperature: float = None) -> str:
+        # step 1: retrieve relevant documents from vector database
+        retrieved_docs = self.search_vector_db_collection(project=project,
+                                                          text=query,
+                                                          limit=limit)
+        answer, full_prompt, chat_history = None, None, None
+
+        if not retrieved_docs or len(retrieved_docs) == 0:
+            self.logger.error("No relevant documents found in vector database.")
+            return None
+
+        # step 2: construct prompt with retrieved documents
+        system_prompt = self.template_parser.get("rag", "system_prompt")
+        document_prompts = [
+            self.template_parser.get("rag", "document_prompt",
+                                     {"doc_num": idx + 1,
+                                      "chunk_text": doc["text"]})
+            for idx, doc in enumerate(retrieved_docs)
+        ]
+
+        footer_prompt = self.template_parser.get("rag", "footer_prompt")
+
+        chat_history = [
+            self.generation_client.construct_prompt(prompt=system_prompt, role=self.generation_client.enums.SYSTEM.value)
+        ]
+
+        full_prompt = "\n\n".join(document_prompts) + "\n\n" + footer_prompt
+
+        answer = self.generation_client.generate_text(prompt=full_prompt,
+                                                      chat_history=chat_history,
+                                                      max_output_token=max_output_token,
+                                                      temperature=temperature)
+        
+        return answer, full_prompt, chat_history

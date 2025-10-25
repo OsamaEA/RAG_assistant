@@ -1,0 +1,20 @@
+Set environment variables: Open the System Properties on your computer, go to the "Advanced" tab, and click on "Environment Variables". Add the following variables:
+
+Variable name: CUDA_HOME
+Variable value: Path to the CUDA Toolkit installation directory (e.g., C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.3)
+
+Variable name: PATH
+Variable value: %CUDA_HOME%\bin;%CUDA_HOME%\libnvvp;%PATH%
+
+Verify the installation: Open a command prompt or terminal window and run the following command to verify the CUDA installation:
+
+Plain Text
+Copy code
+nvcc --version
+If the command displays the installed CUDA version, it means the installation was successful.
+
+Install necessary Python packages: Use a package manager like pip or conda to install the required Python packages to utilize the GPU for calculations. Some popular packages include TensorFlow, PyTorch, or Keras.
+
+Configure your code: Depending on the specific Python library you are using, you might need to modify your code to explicitly specify the GPU device and utilize GPU acceleration. Refer to the documentation of the respective library for instructions on how to enable GPU support.
+
+That's it! With these steps, you should be able to activate the GPU GeForce RTX on your PC for Python programming.

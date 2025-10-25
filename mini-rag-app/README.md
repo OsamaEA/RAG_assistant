@@ -1,5 +1,6 @@
 # RAG_assistant
 A productionized version of RAG assistant for Q&A.
+MongoDB is used along with QdrantDB in this version of code.
 
 ## Requirements
 - Python 3.8 or later

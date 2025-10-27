@@ -3,7 +3,7 @@ from ..VectorDBInterface import VectorDBInterface
 from ..VectorDBEnums import VectorDBEnums, DistanceMethodEnums
 import logging
 from qdrant_client import models, QdrantClient
-from models.db_scehmes.data_chunk import RetrieveDocument
+from models.db_scehmes.minirag import RetrieveDocument
 
 class QdrantDBProvider(VectorDBInterface):
 

@@ -8,8 +8,7 @@ class Settings(BaseSettings):
     FILE_ALLOWED_EXTENSIONS: list
     MAX_FILE_SIZE: int
     FILE_DEFAULT_CHUNK_SIZE: int
-    MONGODB_URI: str
-    MONGODB_DATABASE: str
+
     GENERATION_BACKEND: str
     EMBEDDING_BACKEND:str
 
@@ -33,6 +32,11 @@ class Settings(BaseSettings):
     DEFAULT_LANG:str = "en"
     PRIMARY_LANG:str = "en"
 
+    POSTGRES_USERNAME:str
+    POSTGRES_PASSWORD:str 
+    POSTGRES_HOST:str
+    POSTGRES_PORT:int 
+    POSTGRES_MAIN_DATABASE:str 
 
     class config:
         env_file = load_dotenv(find_dotenv())

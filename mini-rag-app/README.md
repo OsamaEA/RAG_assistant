@@ -14,6 +14,9 @@ MongoDB is used along with QdrantDB in this version of code.
 ## Installation
 ```bash
 $pip install -r requirements.txt
+$sudo apt update
+$sudo apt install libpq-dev gcc python3-dev #for alembic data migration
+$alembic init alembic #inside the db folder for data migration
 ```
 
 ## Setup environment variables

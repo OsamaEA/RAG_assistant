@@ -1,7 +1,6 @@
 import json
 from .BaseController import BaseController
-from models.db_scehmes.project import Project
-from models.db_scehmes.data_chunk import DataChunk
+from models.db_scehmes.minirag import Project, Asset, RetrieveDocument, DataChunk
 from typing import List
 from stores.llm.LLMEnums import DocumentTypeEnum
 

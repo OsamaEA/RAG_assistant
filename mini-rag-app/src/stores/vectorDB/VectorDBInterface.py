@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List
-from models.db_scehmes.data_chunk import RetrieveDocument
+from models.db_scehmes.minirag import RetrieveDocument
 
 class VectorDBInterface(ABC):
 

@@ -11,8 +11,7 @@ logger = logging.getLogger("uvicorn.error")
 from .schemes import ProcessRequest
 from models.ProjectModel import ProjectModel
 from models.ChunkModel import ChunkModel
-from models.db_scehmes.data_chunk import DataChunk
-from models.db_scehmes.asset import Asset
+from models.db_scehmes.minirag import DataChunk, Asset, Project
 from models.AssetModel import AssetModel
 from models.enums.AssetTypeEnum import AssetTypeEnum
 
@@ -23,7 +22,7 @@ data_router = APIRouter(
 )
 
 @data_router.post("/upload/{project_id}")
-async def upload_data(request: Request, project_id: str, file: UploadFile,
+async def upload_data(request: Request, project_id: int, file: UploadFile,
                     app_settings: Settings = Depends(get_settings)):
 
     project_model = await ProjectModel.create_instance(db_client = request.app.db_client)
@@ -50,7 +49,7 @@ async def upload_data(request: Request, project_id: str, file: UploadFile,
 
     asset_model = await AssetModel.create_instance(db_client = request.app.db_client)
     asset_resource = Asset(
-        asset_project_id=project.id,
+        asset_project_id=project.project_id,
         asset_type=AssetTypeEnum.FILE.value,
         asset_name= file_id,
         asset_size= os.path.getsize(file_path))
@@ -59,14 +58,14 @@ async def upload_data(request: Request, project_id: str, file: UploadFile,
 
     return JSONResponse(status_code = status.HTTP_200_OK,
         content = {"detail": ResponseSignal.FILE_UPLOADED_SUCCESS.value,
-                   "file_id": str(asset_record.id),
+                   "file_id": str(asset_record.asset_project_id),
                    "file_path": file_path,
                    "old_project_id": project_id,
-                   "project_id": str(project.id)})
+                   "project_id": str(project.project_id)})
 
 
 @data_router.post("/process/{project_id}")
-async def process_endpoint(request: Request, project_id: str, process_request: ProcessRequest):
+async def process_endpoint(request: Request, project_id: int, process_request: ProcessRequest):
     #file_id = process_request.file_id
     chunk_size = process_request.chunk_size
     overlap_size = process_request.overlap_size
@@ -81,12 +80,12 @@ async def process_endpoint(request: Request, project_id: str, process_request: P
     project_files_ids = []
     if process_request.file_id is not None:
         asset_record = await asset_model.get_asset_record(
-            asset_project_id=project.id, #get actual project id from database not the project_id
+            asset_project_id=project.project_id, #get actual project id from database not the project_id
             asset_name=process_request.file_id
         )
 
         if asset_record is not None:
-            project_files_ids = {asset_record.id: asset_record.asset_name}
+            project_files_ids = {asset_record.asset_project_id: asset_record.asset_name}
         else:
             return JSONResponse(
                 status_code = status.HTTP_400_BAD_REQUEST,
@@ -94,9 +93,9 @@ async def process_endpoint(request: Request, project_id: str, process_request: P
             )
     else:
         project_files = await asset_model.get_all_project_assets(
-            asset_project_id=project.id, #get actual project id from database not the project_id
+            asset_project_id=project.project_id, #get actual project id from database not the project_id
             asset_type=AssetTypeEnum.FILE.value)
-        project_files_ids = {file_record.id: file_record.asset_name for file_record in project_files}
+        project_files_ids = {file_record.asset_project_id: file_record.asset_name for file_record in project_files}
 
     if len(project_files_ids) == 0:
         return JSONResponse(
@@ -109,8 +108,8 @@ async def process_endpoint(request: Request, project_id: str, process_request: P
     no_files = 0
 
     if do_reset == 1:
-        deleted_count = await chunk_model.delete_chunks_by_project_id(project_id=project.id)
-        logger.info(f"Deleted {deleted_count} chunks for project_id: {project.id}")
+        deleted_count = await chunk_model.delete_chunks_by_project_id(project_id=project.project_id)
+        logger.info(f"Deleted {deleted_count} chunks for project_id: {project.project_id}")
 
 
     for asset_id, file_id in project_files_ids.items():    
@@ -134,7 +133,7 @@ async def process_endpoint(request: Request, project_id: str, process_request: P
             chunk_text=chunk.page_content,
             chunk_metadata=chunk.metadata,
             chunk_order=i+1,
-            chunk_project_id=project.id,
+            chunk_project_id=project.project_id,
             chunk_asset_id=asset_id
         ) for i, chunk in enumerate(file_chunks)
         ]

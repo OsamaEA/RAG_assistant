@@ -17,8 +17,9 @@ class Asset(SQLAlchmeyBase):
 
     asset_project_id = Column(Integer, ForeignKey("projects.project_id"), nullable=False)
 
-    project = relationship("Project", back_populates="Assets")
-
+    project = relationship("Project", back_populates="assets")
+    chunks = relationship("DataChunk", back_populates="asset")
+    
     __table_args__ = (
         Index("ix_asset_project_id", asset_project_id),
         Index("ix_asset_type", asset_type)

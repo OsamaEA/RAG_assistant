@@ -1,0 +1,215 @@
+from ..VectorDBInterface import VectorDBInterface
+from ..VectorDBEnums import (DistanceMethodEnums, PgVectorDistanceMethodEnums, PgVectorIndexTypeEnums,
+                              PgvectorTableSchemaEnums)
+import logging
+from typing import List
+from models.db_scehmes import RetrieveDocument
+from sqlalchemy.sql import text as sql_text
+import json
+
+class PGVectorProvider(VectorDBInterface):
+    def __init__(self, db_client, default_vector_size: int=786,
+                 distance_method: str = None):
+            self.db_client = db_client
+            self.default_vector_size = default_vector_size
+            self.distance_method = distance_method
+
+            self.pgvector_table_prefix = PgvectorTableSchemaEnums._PREFIX.value
+            self.logger = logging.getLogger("uvicorn")
+
+    async def connect(self):
+          async with self.db_client.connect() as session:
+                async with session.begin():
+                    await session.execute(sql_text("CREATE EXTENSION IF NOT EXISTS vector;"))
+                    await session.commit()
+
+
+    async def disconnect(self):
+          pass
+    
+
+
+    async def is_collection_existed(self, collection_name: str) -> bool:
+        record = None
+        async with self.db_client.connect() as session:
+            async with session.begin():
+                list_tbl = sql_text('SELECT * FROM pg_tables WHERE tablename = :collection_name;')
+                results = await session.execute(list_tbl, {"collection_name": collection_name})
+                record = results.scalar_one_or_none()
+        return record
+    
+    async def list_all_collections(self) -> List:
+        records = []
+        async with self.db_client.connect() as session:
+            async with session.begin():
+                list_tbl = sql_text('SELECT tablename FROM pg_tables WHERE tablename LIKE :prefix;')
+                records = await session.execute(list_tbl, {"prefix": self.pgvector_table_prefix})
+                records = records.scalars().all()
+        return records
+                
+
+    async def get_collection_info(self, collection_name: str) -> dict:
+        info={}
+        async with self.db_client.connect() as session:
+             async with session.begin():
+                table_info_stat = sql_text('''
+                    SELECT schemaname, tablename, tableowner, tablespace, hasindexes
+                                           FROM pg_tables
+                                           WHERE tablename = :collection_name;
+                                           ''')
+                count_sql = sql_text('SELECT COUNT(*) FROM :collection_name;')
+                table_info = await session.execute(table_info_stat, {"collection_name": collection_name})
+                table_count = await session.execute(count_sql, {"collection_name": collection_name})
+                
+                table_data = table_info.fetchone()
+                if not table_data:
+                    return None
+        return {"table_info": dict(table_data),
+                "record_count": table_count}
+    
+
+    async def delete_collection(self, collection_name: str):
+        async with self.db_client.connect() as session:
+            async with session.begin():
+                self.logger.info(f"Deleting collection: {collection_name}")
+                delete_sql = sql_text("DROP TABLE IF EXISTS :collection_name;")
+                await session.execute(delete_sql, {"collection_name": collection_name})
+                await session.commit()
+        return True    
+    
+
+    async def create_collection(self, collection_name: str,
+                                embedding_size: int,
+                                do_reset: bool = False):
+        if do_reset:
+            _ = await self.delete_collection(collection_name=collection_name)
+        is_collection_existed = await self.is_collection_existed(collection_name=collection_name)
+        if not is_collection_existed:
+            async with self.db_client() as session:
+                async with session.begin():
+                    create_sql = sql_text(f'CREATE TABLE {collection_name} ('
+                                          f'{PgvectorTableSchemaEnums.ID.value} bigserial PRIMARY KEY, '
+                                          f'{PgvectorTableSchemaEnums.TEXT.value} text, '
+                                          f'{PgvectorTableSchemaEnums.VECTOR.value} vector({embedding_size}), '
+                                          f'{PgvectorTableSchemaEnums.METADATA.value} jsonb DEFAULT \'{{}}\', '
+                                          f'{PgvectorTableSchemaEnums.CHUNK_ID.value} integer, '
+                                          f'FOREIGN KEY {{PgvectorTableSchemaEnums.CHUNK_ID.value}} REFERENCES chunks(chunk_id)'
+                                          ')'
+                    )
+                    await session.execute(create_sql)
+                    await session.commit()
+            return True
+        return False
+    
+
+    async def insert_one(self, collection_name, text, vector, metadata = None, record_id = None):
+        is_collection_existed = await self.is_collection_existed(collection_name=collection_name)
+        if not is_collection_existed:
+            self.logger.error(f"Can not insert a new record to a non existing Collection {collection_name}.")
+            return False
+        
+        if not record_id:
+            self.logger.error(f"Record id must be provided to insert a new record to Collection {collection_name}.")
+            return False
+        
+
+        async with self.db_client.connect() as session:
+            async with session.begin():
+                insert_sql = sql_text(f'INSERT INTO {collection_name} '
+                                      f'({PgvectorTableSchemaEnums.TEXT.value},\
+                                         {PgvectorTableSchemaEnums.VECTOR.value},\
+                                         {PgvectorTableSchemaEnums.METADATA.value},\
+                                         {PgvectorTableSchemaEnums.CHUNK_ID.value}) '
+                                      'VALUES (:text, :vector, :metadata, :chunk_id);')
+                await session.execute(insert_sql,
+                                      {
+                                        'text': text,
+                                        'vector': "[" + ",".join([str(v) for v in vector]) + "]",
+                                        'metadata': metadata,
+                                        'chunk_id': record_id
+                                      }
+                )
+        return True
+    
+
+
+    async def insert_many(self, collection_name: str, texts: list, vectors: list,
+                          metadata: list = None, record_ids: list = None,
+                          batch_size: int = 50):
+        
+        is_collection_existed = await self.is_collection_existed(collection_name=collection_name)
+        if not is_collection_existed:
+            self.logger.error(f"Can not insert new records to a non existing Collection {collection_name}.")
+            return False
+        
+        if not record_ids or len(vectors) != len(texts):
+            self.logger.error(f"Invalid data items for collection as lengths of inputs are not equal for collection: {collection_name}.")
+            return False
+        
+        async with self.db_client.connect() as session:
+            async with session.begin():
+                for start_idx in range(0, len(texts), batch_size):
+                    end_idx = min(start_idx + batch_size, len(texts))
+                    batch_texts = texts[start_idx:end_idx]
+                    batch_vectors = vectors[start_idx:end_idx]
+                    batch_metadata = metadata[start_idx:end_idx] if metadata else [None] * (end_idx - start_idx)
+                    batch_record_ids = record_ids[start_idx:end_idx]
+
+
+
+                    values = []
+
+                    for _text, _vector, _metadata, _record_id in zip(batch_texts, batch_vectors, batch_metadata, batch_record_ids):
+                        values.append({
+                                        'text': _text,
+                                        'vector': "[" + ",".join([str(v) for v in _vector]) + "]",
+                                        'metadata': _metadata,
+                                        'chunk_id': _record_id
+                                    })
+                    for text, vector, meta, rec_id in values:
+                        batch_insert_sql = sql_text(f'INSERT INTO {collection_name} '
+                                              f'({PgvectorTableSchemaEnums.TEXT.value}, '
+                                              f'{PgvectorTableSchemaEnums.VECTOR.value}, '
+                                              f'{PgvectorTableSchemaEnums.METADATA.value}, '
+                                              f'{PgvectorTableSchemaEnums.CHUNK_ID.value}) '
+                                              'VALUES (:text, :vector, :metadata, :chunk_id);')
+                        await session.execute(batch_insert_sql, values)
+
+            await session.commit()
+        return True
+
+
+    async def search_by_vector(self, collection_name: str, vector: list, limit: int) -> List[RetrieveDocument]:
+        is_collection_existed = await self.is_collection_existed(collection_name=collection_name)
+        if not is_collection_existed:
+            self.logger.error(f"Can not search in a non existing Collection {collection_name}.")
+            return False
+        
+        vector = "[" + ",".join([str(v) for v in vector]) + "]"
+        async with self.db_client.connect() as session:
+            async with session.begin():
+                search_sql = sql_text(
+                    f'''
+                    SELECT {PgvectorTableSchemaEnums.TEXT.value} AS text, 
+                            1 - ({PgvectorTableSchemaEnums.VECTOR.value} <-> :vector) AS score
+                    FROM {collection_name}
+                    ORDER BY score DESC
+                    LIMIT {limit};
+                    '''
+                )
+
+                result = await session.execute(search_sql, {'vector': vector})
+                records = result.fetchall()
+
+                return [
+                    RetrieveDocument(
+                        text=record['text'],
+                        distance=record['score']
+                    )
+                    for record in records
+                ]
+
+
+
+
+              

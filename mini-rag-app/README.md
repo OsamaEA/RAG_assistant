@@ -39,6 +39,12 @@ $ cp .env
 ```
 - update `.env` with your credenitals
 
+## Run Models on Ollama
+```bash
+$ ollama serve
+```
+
+
 ## Workflow
 1) Data Parsing
 2) Data Chunking

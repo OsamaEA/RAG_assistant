@@ -5,6 +5,8 @@ from models import ProcessingEnum, ResponseSignal
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 from routers import ProcessRequest
+import re
+
 
 class ProcessController(BaseController):
     def __init__(self, project_id: str):
@@ -30,12 +32,25 @@ class ProcessController(BaseController):
 
         else:
             return None
+        
+    def sanitize_text(self, text: str) -> str:
+        """Removes PostgreSQL-invalid control characters (especially null bytes)."""
+        if not text:
+            return ""
+        return re.sub(r"[\x00-\x1F]+", "", text)
+    
 
     def get_content_from_file(self, file_id: str):
         file_loader = self.get_file_loader(file_id=file_id)
         if file_loader is None:
             return None
-        return file_loader.load()
+        #return file_loader.load()
+        # Sanitizing Text Content
+        docs = file_loader.load()
+        for doc in docs:
+            if hasattr(doc, "page_content") and isinstance(doc.page_content, str):
+                doc.page_content = self.sanitize_text(doc.page_content)
+        return docs
 
     def process_file_content(self, file_id:str, file_content: list, chunk_size: int, overlap_size: int):
         text_splitter = RecursiveCharacterTextSplitter(

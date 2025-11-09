@@ -11,18 +11,17 @@ from sqlalchemy.orm import sessionmaker
 
 app = FastAPI()
 #@app.on_event("startup")
-def startup_span():
+async def startup_span():
     settings = get_settings()
     
     postgres_conn = f"postgresql+asyncpg://{settings.POSTGRES_USERNAME}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_MAIN_DATABASE}"
     app.db_engine = create_async_engine(postgres_conn)
     app.db_client = sessionmaker(app.db_engine, class_=AsyncSession, expire_on_commit=False)
 
-    
-    vectordb_provider_factory = VectorDBProviderFactory(settings)
+    vectordb_provider_factory = VectorDBProviderFactory(config = settings, db_client=app.db_client)
     app.vectordb_client = vectordb_provider_factory.create(
                     provider = settings.VECTOR_DB_BACKEND) 
-    app.vectordb_client.connect()
+    await app.vectordb_client.connect()
 
     app.template_parser = TemplateParser(language = settings.PRIMARY_LANG,
                                   default_language= settings.DEFAULT_LANG)
@@ -42,9 +41,9 @@ def startup_span():
                                              embedding_size = settings.EMBEDDING_MODEL_SIZE)
 
 #@app.on_event("shutdown")
-def shutdown_span():
-    app.db_engine.dispose()
-    app.vectordb_client.disconnect()
+async def shutdown_span():
+    await app.db_engine.dispose()
+    await app.vectordb_client.disconnect()
 
 #app.router.lifespan.on_startup.append(startup_span)
 #app.router.lifespan.on_shutdown.append(shutdown_span)

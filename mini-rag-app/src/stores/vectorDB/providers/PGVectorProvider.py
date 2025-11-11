@@ -147,8 +147,9 @@ class PGVectorProvider(VectorDBInterface):
                 if records_count < self.index_threshold:
                     return False
                 
-                self.logger.info(f"START Creating index for collection: {collection_name} with index type: {index_type}")
-                create_index_sql = sql_text('''
+                self.logger.info(f"START Creating index for collection: {collection_name}")
+                index_name = self.default_index_name(collection_name)
+                create_index_sql = sql_text(f'''
                             CREATE INDEX {index_name} 
                             ON {collection_name}
                             USING {index_type} ({PgvectorTableSchemaEnums.VECTOR.value} {self.distance_method}); 
@@ -219,13 +220,20 @@ class PGVectorProvider(VectorDBInterface):
                           batch_size: int = 50):
         
         is_collection_existed = await self.is_collection_existed(collection_name=collection_name)
+        
         if not is_collection_existed:
             self.logger.error(f"Can not insert new records to a non existing Collection {collection_name}.")
             return False
         
         if not record_ids or len(vectors) != len(texts):
+            self.logger.error(
+            f"Check lengths for {collection_name}: "
+            f"record_ids={'None' if not record_ids else len(record_ids)}, "
+            f"len(vectors)={len(vectors)}, len(texts)={len(texts)}"
+        )
             self.logger.error(f"Invalid data items for collection as lengths of inputs are not equal for collection: {collection_name}.")
             return False
+        
         
         async with self.db_client() as session:
             async with session.begin():

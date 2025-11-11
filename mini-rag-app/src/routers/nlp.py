@@ -1,3 +1,4 @@
+import sys
 from fastapi import FastAPI, APIRouter, Depends, UploadFile, File, status, Request
 from fastapi.responses import JSONResponse
 from routers.schemes.nlp_scheme import PushRequest, SearchRequest
@@ -45,7 +46,10 @@ async def index_project(request: Request, project_id: int,
                                                do_reset = push_request.do_reset)
 
     total_chunks_count = await chunk_model.get_total_chunk_counts(project_id=project.project_id)
-    pbar = tqdm(total=total_chunks_count, desc="Vector Indexing", unit="chunk", position = 0)
+    pbar = tqdm(total=total_chunks_count, desc="Vector Indexing", position = 0,
+                    file=sys.stdout,      # ✅ ensures tqdm writes directly to console
+                    dynamic_ncols=True,   # ✅ resizes properly
+                    leave=False )
 
 
 

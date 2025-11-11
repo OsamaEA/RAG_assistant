@@ -37,8 +37,8 @@ class NLPController(BaseController):
         # step 2: manage items
         texts = [chunk.chunk_text for chunk in chunks]
         metadata = [chunk.chunk_metadata for chunk in chunks]
-        vectors = [self.embedding_client.embed_text(text=texts,
-                                                    document_type=DocumentTypeEnum.DOCUMENT.value)]
+        vectors = self.embedding_client.embed_text(text=texts,
+                                                    document_type=DocumentTypeEnum.DOCUMENT.value)
         # step 3: create collection
         await self.vectordb_client.create_collection(collection_name=collection_name,
                                                embedding_size=self.embedding_client.embedding_size,

@@ -20,7 +20,7 @@ class PGVectorProvider(VectorDBInterface):
                 distance_method = PgVectorDistanceMethodEnums.DOT.value
 
             self.pgvector_table_prefix = PgvectorTableSchemaEnums._PREFIX.value
-            self.logger = logging.getLogger("uvicorn")
+            self.logger = logging.getLogger("uvicorn.error")
             self.default_index_name = lambda collection_name: f"{collection_name}_vector_idx"
             self.distance_method = distance_method
 
@@ -41,7 +41,7 @@ class PGVectorProvider(VectorDBInterface):
         record = None
         async with self.db_client() as session:
             async with session.begin():
-                list_tbl = sql_text(f'SELECT * FROM pg_tables WHERE tablename = :collection_name;')
+                list_tbl = sql_text(f'SELECT * FROM pg_tables WHERE tablename = :collection_name')
                 results = await session.execute(list_tbl, {"collection_name": collection_name})
                 record = results.scalar_one_or_none()
         return record
@@ -64,17 +64,23 @@ class PGVectorProvider(VectorDBInterface):
                 table_info_stat = sql_text('''
                     SELECT schemaname, tablename, tableowner, tablespace, hasindexes
                                            FROM pg_tables
-                                           WHERE tablename = {collection_name};
+                                           WHERE tablename = :collection_name;
                                            ''')
                 count_sql = sql_text(f'SELECT COUNT(*) FROM {collection_name};')
-                table_info = await session.execute(table_info_stat)
+                table_info = await session.execute(table_info_stat, {"collection_name": collection_name})
                 table_count = await session.execute(count_sql)
                 
                 table_data = table_info.fetchone()
                 if not table_data:
                     return None
-        return {"table_info": dict(table_data),
-                "record_count": table_count}
+        return {"table_info": {
+                    "schemaname": table_data[0],
+                    "tablename": table_data[1],
+                    "tableowner": table_data[2],
+                    "tablespace": table_data[3],
+                    "hasindexes": table_data[4]
+        },
+                "record_count": table_count.scalar_one()}
     
 
     async def delete_collection(self, collection_name: str):
@@ -152,7 +158,7 @@ class PGVectorProvider(VectorDBInterface):
                 create_index_sql = sql_text(f'''
                             CREATE INDEX {index_name} 
                             ON {collection_name}
-                            USING {index_type} ({PgvectorTableSchemaEnums.VECTOR.value} {self.distance_method}); 
+                            USING {index_type} ({PgvectorTableSchemaEnums.VECTOR.value} {self.distance_method})
                                             ''')
                 await session.execute(create_index_sql)
 
@@ -166,7 +172,7 @@ class PGVectorProvider(VectorDBInterface):
         index_name = self.default_index_name(collection_name)
         async with self.db_client() as session:
             async with session.begin():
-                drop_index_sql = sql_text('''
+                drop_index_sql = sql_text(f'''
                             DROP INDEX IF EXISTS {index_name}
                                           ''')
                 await session.execute(drop_index_sql)
@@ -256,18 +262,18 @@ class PGVectorProvider(VectorDBInterface):
                                         'metadata': meta_json,
                                         'chunk_id': _record_id
                                     })
-                    for text, vector, meta, rec_id in values:
-                        batch_insert_sql = sql_text(f'INSERT INTO {collection_name} '
+                    batch_insert_sql = sql_text(f'INSERT INTO {collection_name} '
                                               f'({PgvectorTableSchemaEnums.TEXT.value}, '
                                               f'{PgvectorTableSchemaEnums.VECTOR.value}, '
                                               f'{PgvectorTableSchemaEnums.METADATA.value}, '
                                               f'{PgvectorTableSchemaEnums.CHUNK_ID.value}) '
                                               'VALUES (:text, :vector, :metadata, :chunk_id);')
-                        await session.execute(batch_insert_sql, values)
-
-            await self.create_vector_index(collection_name=collection_name)
+                    await session.execute(batch_insert_sql, values)
 
             await session.commit()
+            await self.create_vector_index(collection_name=collection_name)
+
+            
         return True
 
 
@@ -286,7 +292,7 @@ class PGVectorProvider(VectorDBInterface):
                 search_sql = sql_text(
                     f'''
                     SELECT {PgvectorTableSchemaEnums.TEXT.value} AS text, 
-                            1 - ({PgvectorTableSchemaEnums.VECTOR.value} <-> :vector) AS score
+                            1 - ({PgvectorTableSchemaEnums.VECTOR.value} <=> :vector) AS score
                     FROM {collection_name}
                     ORDER BY score DESC
                     LIMIT {limit};
@@ -294,12 +300,12 @@ class PGVectorProvider(VectorDBInterface):
                 )
 
                 result = await session.execute(search_sql, {'vector': vector})
-                records = result.fetchall()
+                records = result.mappings().all() 
 
                 return [
                     RetrieveDocument(
                         text=record['text'],
-                        distance=record['score']
+                        score=record['score']
                     )
                     for record in records
                 ]

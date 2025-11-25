@@ -48,3 +48,20 @@ sudo docker compose down -v  #all contianers and volumes
  docker compose logs -f fastapi
  sudo docker compose exec fastapi bash #get into the container
  ```
+
+### Running in Postman
+change http://localhost:5000 to http://127.0.0.1
+
+
+### Working with Alembic
+check src/models/db_scehmes/minirag/alembic/versions/
+if Empty
+Then
+```bash
+docker exec -it fastapi sh
+cd /app/models/db_scehmes/minirag/
+alembic revision --autogenerate -m "Initial schema"
+exit
+docker cp fastapi:/app/models/db_scehmes/minirag/alembic/versions \
+../src/models/db_scehmes/minirag/alembic/
+```

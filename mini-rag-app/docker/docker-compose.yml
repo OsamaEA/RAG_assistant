@@ -13,6 +13,8 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - fastapi_data:/app/Assets
     env_file:
       - env/.env.app
     
@@ -148,3 +150,4 @@ volumes:
   qdrant_data:
   prometheus_data:
   grafana_data:
+  fastapi_data:
